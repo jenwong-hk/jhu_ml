@@ -1,0 +1,136 @@
+---
+title: "index"
+author: "jenwong-hk"
+date: "December 15, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Background:
+
+In this project, we will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+## Objective:
+
+Use the above data to predict how well people do in the activity.
+
+## Cross Validation:
+
+We use K fold as cross validation method to check/choose the best accuracy model for predicting the testing data.  
+
+## Result:
+
+We use data exploration to check/choose the features relating to classe.  We built 2 models from cross validation data and found 2nd model ac
+hieve more than 92% accuracy, and its out-of-sample error is expected to be more than 8%.
+
+We select the 2nd model to apply to the testing data and achieve 95% accuracy in the Project Quiz, therefore the 2nd model is our answer.  Details are as follows:  
+
+
+
+```{r, echo=FALSE}
+library(caret); library(ggplot2)
+training <- read.csv("C:/Users/HP/Downloads/pml-training.csv")
+testing <-read.csv("C:/Users/HP/Downloads/pml-testing.csv")
+str(training)  # data structure
+str(training[99:160])  # data structure (continue)
+```
+
+## Size of training & testing data
+
+```{r, echo=FALSE}
+dim(training); dim(testing)
+```
+
+## CREATE CROSS VALIDATION DATA (train1 & test1) from training data so that we can check/choose the highest accuracy model
+
+```{r, echo=FALSE}
+set.seed(3)
+folds <- createFolds(y=training$classe, k=10, list=TRUE, returnTrain=TRUE)
+sapply(folds, length)
+train1 = training[folds[[1]], ]
+
+set.seed(3)
+folds <- createFolds(y=training$classe, k=10, list=TRUE, returnTrain=FALSE)
+sapply(folds, length)
+test1 = training[folds[[1]], ]
+rm(training)
+```
+
+## Dimension of train1 & test1
+
+```{r}
+dim(train1); dim(test1)
+```
+
+## DATA EXPLORATION on the train1 data
+We have done thorough data exploration on train1 data and found that some features are useful for us to do the prediction. 
+
+For example below feature plot on pitch forearm, pitch bell, pitch arm and pitch dumbbell, we found pitch forearm and pitch dumbbell are good features to predict classe.  Below are the plot for your reference:
+
+```{r, echo=FALSE}
+featurePlot(x=train1[, c(123, 9, 47, 85)], y=train1$classe, plot="pairs")
+```
+
+## BUILD 1st MODEL with train1 data
+We select variables, use principal component analysis to reduce the number of variables and use gbm to do the prediction
+
+```{r, echo=FALSE}
+clas <- train1$classe
+x = c(122:124, 140, 151:159)
+x1 = c(8:10, 11, 39:45)
+x2 = c(46:48, 49, 60:68)
+x3 = c(84:86, 102, 113:121)
+selectV = c(x, x1, x2, x3)
+```
+
+## APPLY 1ST MODEL to test1 and have accuracy check
+
+```{r}
+preProc <- preProcess(train1[, selectV], method="pca", thresh=0.8) 
+trainPC <- predict(preProc, train1[, selectV])
+trainPC1 <- cbind(clas, trainPC)
+
+set.seed(325)
+
+modFit <- train(clas ~ ., data=trainPC1, method="gbm", verbose=FALSE)
+
+testPC <- predict(preProc, test1[, selectV])
+p <- predict(modFit, testPC)
+
+confusionMatrix(test1$classe, p)
+
+```
+
+## BUILD 2nd MODEL with the same train1 data
+We select variables, use scale and gbm to do the prediction
+
+```{r, echo=FALSE}
+clas <- train1$classe
+x = c(123, 140, 156)
+x1 = c(10, 11, 39, 40, 42, 43)
+x2 = c(48, 49, 62,63,65,67)
+x3 = c(85, 86, 102, 116:121)
+selectV = c(x, x1, x2, x3)
+```
+
+## APPLY 2nd MODEL to same test1 data and have accuracy check
+
+```{r}
+preProc_2 <- preProcess(train1[, selectV], method="scale") 
+trainPC <- predict(preProc_2, train1[, selectV])
+trainPC1 <- cbind(clas, trainPC)
+rm(trainPC)
+
+set.seed(325)
+
+modFit_2 <- train(clas ~ ., data=trainPC1, method="gbm", verbose=FALSE)
+
+testPC <- predict(preProc_2, test1[, selectV])
+p2 <- predict(modFit_2, testPC)
+
+confusionMatrix(test1$classe, p2)
+
+```
+
